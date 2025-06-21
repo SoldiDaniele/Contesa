@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contesa del Secchio</title>
+  <!-- Import del font medievale -->
+  <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'MedievalSharp', cursive;
+      text-align: center;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 10px;
+    }
+    select, button {
+      font-size: 16px;
+      margin: 8px 5px;
+      padding: 10px;
+      width: 45%;
+      max-width: 160px;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    /* Schermata di gioco nascosta nella prima pagina */
+    #matchContainer {
+      display: none;
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    #timerContainer {
+      margin-bottom: 10px;
+    }
+    #timerDisplay {
+      font-size: 1.5em;
+      margin-right: 10px;
+    }
+    /* Box per la Contrada (senza la linea dei colori) */
+    .contrada {
+      margin: 10px auto;
+      padding: 15px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 300px;
+      background-color: #fff;
+      box-sizing: border-box;
+    }
+    .logo {
+      width: 80px;
+      height: auto;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    .score {
+      font-size: 2em;
+      margin: 10px 0;
+    }
+    #classifica {
+      margin-top: 30px;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+    /* Contenitore dei tasti di navigazione nascosto inizialmente */
+    #navButtons {
+      display: none;
+    }
+    @media (max-width: 480px) {
+      select, button {
+        width: 100%;
+        max-width: none;
+        font-size: 18px;
+      }
+      .score {
+        font-size: 1.6em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Contesa del Secchio</h1>
+  <!-- Dropdown per le 24 combinazioni -->
+  <select id="combinazioneSelect" onchange="selezionaCombinazione()">
+    <option value="">-- Seleziona una combinazione --</option>
+  </select>
+
+  <!-- Schermata partita: viene mostrata solo dopo aver selezionato una combinazione -->
+  <div id="matchContainer">
+    <div id="timerContainer">
+      <span id="timerDisplay">10:00</span>
+      <button id="startTimer" onclick="avviaTimer()">Avvia Timer</button>
+      <button onclick="resetTimer()">Azzera Timer</button>
+    </div>
+    <div id="partitaCorrente"></div>
+    <div id="container"></div>
+  </div>
+
+  <!-- Tasti di navigazione: visibili dopo aver selezionato la combinazione -->
+  <div id="navButtons">
+    <button onclick="partitaSuccessiva()">Partita Successiva</button>
+    <button onclick="mostraClassifica()">Mostra Classifica</button>
+  </div>
+
+  <div id="classifica"></div>
+
+  <script>
+    // Nomi estesi delle contrade
+    const nomiReali = {
+      verdi: "Contrada San Martino",
+      azzurri: "Magnifica Contrada Santa Maria",
+      gialli: "Contrada Cavaliera Sant’Elpidio",
+      rossi: "Nobile Contrada San Giovanni"
+    };
+
+    // Colori principali (un solo colore per la visualizzazione del gradiente)
+    const colori = {
+      verdi: ["#008000"],
+      azzurri: ["#00aaff"],
+      gialli: ["#FFD700"],
+      rossi: ["#B22222"]
+    };
+
+    // 24 combinazioni, ognuna con 6 partite
+    const combinazioni = [
+      ["azzurri vs gialli", "gialli vs verdi", "verdi vs rossi", "rossi vs azzurri", "azzurri vs verdi", "gialli vs rossi"],
+      ["rossi vs verdi", "verdi vs azzurri", "azzurri vs gialli", "gialli vs rossi", "rossi vs azzurri", "verdi vs gialli"],
+      ["verdi vs rossi", "rossi vs gialli", "gialli vs azzurri", "azzurri vs verdi", "verdi vs gialli", "rossi vs azzurri"],
+      ["verdi vs gialli", "rossi vs gialli", "rossi vs azzurri", "verdi vs azzurri", "azzurri vs gialli", "verdi vs rossi"],
+      ["azzurri vs verdi", "gialli vs azzurri", "verdi vs gialli", "rossi vs gialli", "rossi vs azzurri", "verdi vs rossi"],
+      ["gialli vs rossi", "rossi vs verdi", "verdi vs azzurri", "azzurri vs gialli", "gialli vs verdi", "rossi vs azzurri"],
+      ["azzurri vs gialli", "rossi vs verdi", "verdi vs gialli", "gialli vs rossi", "verdi vs azzurri", "azzurri vs rossi"],
+      ["rossi vs verdi", "verdi vs azzurri", "azzurri vs gialli", "gialli vs rossi", "verdi vs gialli", "azzurri vs rossi"],
+      ["verdi vs azzurri", "azzurri vs rossi", "gialli vs rossi", "verdi vs gialli", "rossi vs verdi", "azzurri vs gialli"],
+      ["verdi vs gialli", "azzurri vs verdi", "rossi vs azzurri", "gialli vs rossi", "verdi vs rossi", "azzurri vs gialli"],
+      ["gialli vs azzurri", "rossi vs azzurri", "verdi vs gialli", "gialli vs rossi", "verdi vs azzurri", "rossi vs verdi"],
+      ["azzurri vs gialli", "gialli vs rossi", "rossi vs verdi", "verdi vs azzurri", "gialli vs verdi", "azzurri vs rossi"],
+      ["gialli vs verdi", "verdi vs rossi", "rossi vs azzurri", "azzurri vs gialli", "gialli vs rossi", "verdi vs azzurri"],
+      ["rossi vs azzurri", "gialli vs verdi", "verdi vs azzurri", "gialli vs rossi", "rossi vs verdi", "azzurri vs gialli"],
+      ["azzurri vs gialli", "verdi vs azzurri", "rossi vs gialli", "verdi vs rossi", "azzurri vs rossi", "gialli vs verdi"],
+      ["verdi vs azzurri", "gialli vs rossi", "rossi vs verdi", "azzurri vs gialli", "verdi vs gialli", "rossi vs azzurri"],
+      ["gialli vs rossi", "verdi vs gialli", "azzurri vs rossi", "rossi vs verdi", "azzurri vs gialli", "verdi vs azzurri"],
+      ["azzurri vs gialli", "verdi vs gialli", "rossi vs azzurri", "azzurri vs verdi", "gialli vs rossi", "rossi vs verdi"],
+      ["rossi vs gialli", "gialli vs azzurri", "azzurri vs verdi", "verdi vs rossi", "rossi vs azzurri", "gialli vs verdi"],
+      ["gialli vs verdi", "verdi vs rossi", "rossi vs azzurri", "azzurri vs gialli", "gialli vs rossi", "verdi vs azzurri"],
+      ["verdi vs gialli", "azzurri vs rossi", "rossi vs verdi", "gialli vs azzurri", "azzurri vs verdi", "gialli vs rossi"],
+      ["azzurri vs rossi", "rossi vs gialli", "gialli vs verdi", "verdi vs azzurri", "azzurri vs gialli", "verdi vs rossi"],
+      ["gialli vs verdi", "verdi vs azzurri", "azzurri vs rossi", "rossi vs gialli", "gialli vs azzurri", "verdi vs rossi"],
+      ["rossi vs azzurri", "azzurri vs gialli", "gialli vs verdi", "verdi vs rossi", "rossi vs gialli", "azzurri vs verdi"]
+    ];
+
+    let punteggiTotali = { verdi: 0, azzurri: 0, gialli: 0, rossi: 0 };
+    let punteggiParziali = {};
+    let partitaIndex = 0;
+    let combinazioneCorrente = [];
+
+    // Popola il dropdown con le 24 combinazioni
+    const select = document.getElementById("combinazioneSelect");
+    combinazioni.forEach((_, i) => {
+      const option = document.createElement("option");
+      option.value = i;
+      option.textContent = `Combinazione ${i + 1}`;
+      select.appendChild(option);
+    });
+
+    // Timer: 10 minuti (600 secondi)
+    const tempoIniziale = 600;
+    let timerInterval;
+    function formatTimer(sec) {
+      const min = Math.floor(sec / 60);
+      const secRem = sec % 60;
+      return (min < 10 ? "0" + min : min) + ":" + (secRem < 10 ? "0" + secRem : secRem);
+    }
+    
+    function avviaTimer() {
+      clearInterval(timerInterval);
+      let tempoRimanente = tempoIniziale;
+      document.getElementById("timerDisplay").textContent = formatTimer(tempoRimanente);
+      timerInterval = setInterval(() => {
+        tempoRimanente--;
+        document.getElementById("timerDisplay").textContent = formatTimer(tempoRimanente);
+        if (tempoRimanente <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById("timerDisplay").textContent = "Tempo scaduto!";
+        }
+      }, 1000);
+    }
+    
+    function resetTimer() {
+      clearInterval(timerInterval);
+      document.getElementById("timerDisplay").textContent = "10:00";
+    }
+    
+    function selezionaCombinazione() {
+      if (select.value === "") {
+        alert("Seleziona una combinazione!");
+        return;
+      }
+      partitaIndex = 0;
+      punteggiTotali = { verdi: 0, azzurri: 0, gialli: 0, rossi: 0 };
+      punteggiParziali = {};
+      combinazioneCorrente = combinazioni[select.value];
+      
+      // Mostra le sezioni di gioco solo dopo che è stata scelta una combinazione
+      document.getElementById("matchContainer").style.display = "block";
+      document.getElementById("navButtons").style.display = "block";
+      document.getElementById("classifica").innerHTML = "";
+      
+      mostraPartita();
+    }
+    
+    function mostraPartita() {
+      clearInterval(timerInterval);
+      document.getElementById("timerDisplay").textContent = "10:00";
+      
+      if (!combinazioneCorrente || partitaIndex >= combinazioneCorrente.length) return;
+      
+      const partita = combinazioneCorrente[partitaIndex];
+      const [c1, , c2] = partita.split(" ");
+      document.getElementById("matchContainer").style.background =
+        "linear-gradient(to right, " + colori[c1][0] + ", " + colori[c2][0] + ")";
+      document.getElementById("partitaCorrente").innerHTML =
+        `<h2>Partita: ${nomiReali[c1]} vs ${nomiReali[c2]}</h2>`;
+      
+      const container = document.getElementById("container");
+      container.innerHTML = "";
+      [c1, c2].forEach(contrada => {
+        const div = document.createElement("div");
+        div.className = "contrada";
+        div.innerHTML = `
+          <img src="img/${contrada}.jpeg" alt="${nomiReali[contrada]} Logo" class="logo">
+          <h3>${nomiReali[contrada]}</h3>
+          <div class="score" id="score-${contrada}">0</div>
+          <button onclick="aggiornaPunteggio('${contrada}', 5)">+5 Pozzo</button>
+          <button onclick="aggiornaPunteggio('${contrada}', -1)">-1 Penalità</button>
+          <button onclick="aggiornaPunteggio('${contrada}', -3)">-3 Personale</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+    
+    function aggiornaPunteggio(contrada, delta) {
+      punteggiParziali[contrada] = (punteggiParziali[contrada] || 0) + delta;
+      document.getElementById("score-" + contrada).textContent = punteggiParziali[contrada];
+    }
+    
+    function partitaSuccessiva() {
+      for (const contrada in punteggiParziali) {
+        punteggiTotali[contrada] += punteggiParziali[contrada];
+      }
+      punteggiParziali = {};
+      partitaIndex++;
+      if (partitaIndex < combinazioneCorrente.length) {
+        mostraPartita();
+      } else {
+        document.getElementById("partitaCorrente").innerHTML = "<h2>Fine delle partite.</h2>";
+        document.getElementById("container").innerHTML = "";
+        document.getElementById("matchContainer").style.background = "";
+        clearInterval(timerInterval);
+      }
+    }
+    
+    function mostraClassifica() {
+      const ordinati = Object.entries(punteggiTotali).sort((a, b) => b[1] - a[1]);
+      let html = "<h2>Classifica</h2>";
+      ordinati.forEach(([contrada, punteggio], index) => {
+        html += `${index + 1}° - ${nomiReali[contrada]}: ${punteggio} punti<br>`;
+      });
+      document.getElementById("classifica").innerHTML = html;
+    }
+    
+  </script>
+
+</body>
+</html>
